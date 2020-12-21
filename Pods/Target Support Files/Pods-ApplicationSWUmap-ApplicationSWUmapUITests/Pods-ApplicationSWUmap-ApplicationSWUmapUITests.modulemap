@@ -1,0 +1,6 @@
+framework module Pods_ApplicationSWUmap_ApplicationSWUmapUITests {
+  umbrella header "Pods-ApplicationSWUmap-ApplicationSWUmapUITests-umbrella.h"
+
+  export *
+  module * { export * }
+}
