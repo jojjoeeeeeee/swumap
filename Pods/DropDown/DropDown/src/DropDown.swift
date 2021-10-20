@@ -79,7 +79,7 @@ public final class DropDown: UIView {
 	public static weak var VisibleDropDown: DropDown?
 
 	//MARK: UI
-	public var dismissableView = UIView()
+	fileprivate let dismissableView = UIView()
 	fileprivate let tableViewContainer = UIView()
 	fileprivate let tableView = UITableView()
 	fileprivate var templateCell: DropDownCell!

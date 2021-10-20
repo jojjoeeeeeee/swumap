@@ -1002,14 +1002,20 @@ class ViewController: UIViewController {
         menu.show()
         addtransparentView()
         let tapMenuViewGesture = UITapGestureRecognizer(target: self, action: #selector(removetransparentView))
-        menu.dismissableView.addGestureRecognizer(tapMenuViewGesture)
+        menu.cancelAction = { [weak self] in
+            self?.removetransparentView()
+        }
+//        menu.dismissableView.addGestureRecognizer(tapMenuViewGesture)
     }
     
     @objc func didTapBottomLeftItem() {
         filtermenu.show()
         addtransparentView()
         let tapFilterMenuViewGesture = UITapGestureRecognizer(target: self, action: #selector(removetransparentView))
-        filtermenu.dismissableView.addGestureRecognizer(tapFilterMenuViewGesture)
+//        filtermenu.dismissableView.addGestureRecognizer(tapFilterMenuViewGesture)
+        filtermenu.cancelAction = { [weak self] in
+            self?.removetransparentView()
+        }
     }
     
     override var preferredStatusBarStyle: UIStatusBarStyle {
