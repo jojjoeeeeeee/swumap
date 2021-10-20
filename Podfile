@@ -21,7 +21,6 @@ pod 'RealmSwift', '~> 10.17'
  
 # add pods for any other desired Firebase products
 # https://firebase.google.com/docs/ios/setup#available-pods
-pod 'DropDown'
 
   target 'ApplicationSWUmapTests' do
     inherit! :search_paths
