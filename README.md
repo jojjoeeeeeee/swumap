@@ -1,6 +1,7 @@
 # swumap
 swumap swift storyboard project
-Using: Swift Storyboard (runtime UI), UIKit
+<br>
+Using: Swift Storyboard (runtime UI), UIKit, Firebase (realtime DB,Authentication)
 
 |Developer|Email|
 |---------|-----|
