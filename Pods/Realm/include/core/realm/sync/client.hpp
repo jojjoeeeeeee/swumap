@@ -24,26 +24,6 @@ class Client {
 public:
     enum class Error;
 
-    enum class ReconnectMode {
-        /// This is the mode that should always be used in production. In this
-        /// mode the client uses a scheme for determining a reconnect delay that
-        /// prevents it from creating too many connection requests in a short
-        /// amount of time (i.e., a server hammering protection mechanism).
-        normal,
-
-        /// For testing purposes only.
-        ///
-        /// Never reconnect automatically after the connection is closed due to
-        /// an error. Allow immediate reconnect if the connection was closed
-        /// voluntarily (e.g., due to sessions being abandoned).
-        ///
-        /// In this mode, Client::cancel_reconnect_delay() and
-        /// Session::cancel_reconnect_delay() can still be used to trigger
-        /// another reconnection attempt (with no delay) after an error has
-        /// caused the connection to be closed.
-        testing
-    };
-
     using port_type = util::network::Endpoint::port_type;
     using RoundtripTimeHandler = void(milliseconds_type roundtrip_time);
 
@@ -90,11 +70,6 @@ public:
         /// that it remains easily interpretable by human beings.
         std::string user_agent_application_info;
 
-        /// The maximum number of Realm files that will be kept open
-        /// concurrently by this client. The client keeps a cache of open Realm
-        /// files for efficiency reasons.
-        long max_open_files = 256;
-
         /// An optional logger to be used by the client. If no logger is
         /// specified, the client will use an instance of util::StderrLogger
         /// with the log level threshold set to util::Logger::Level::info. The
@@ -127,12 +102,6 @@ public:
         /// Many operations, such as serialized transactions, are not suppored
         /// in this mode.
         bool dry_run = false;
-
-        /// The default changeset cooker to be used by new sessions. Can be
-        /// overridden by Session::Config::changeset_cooker.
-        ///
-        /// \sa make_client_replication(), TrivialChangesetCooker.
-        std::shared_ptr<ClientReplication::ChangesetCooker> changeset_cooker;
 
         /// The maximum number of milliseconds to allow for a connection to
         /// become fully established. This includes the time to resolve the
@@ -357,11 +326,11 @@ class BadServerUrl; // Exception
 /// longer be executing when session termination completes, and they are
 /// guaranteed to not be called after session termination completes. Termination
 /// is an event that completes asynchronously with respect to the application,
-/// but is initiated by calling detach(), or implicitely by destroying a session
+/// but is initiated by calling detach(), or implicitly by destroying a session
 /// object. After having initiated one or more session terminations, the
 /// application can wait for those terminations to complete by calling
 /// Client::wait_for_session_terminations_or_client_stopped(). Since callback
-/// functinos are always executed by the event loop thread, they are also
+/// functions are always executed by the event loop thread, they are also
 /// guaranteed to not be executing after Client::run() has returned.
 class Session {
 public:
@@ -515,25 +484,6 @@ public:
         /// identity and access rights of the current user.
         std::string signed_user_token;
 
-        /// If not null, overrides whatever is specified by
-        /// Client::Config::changeset_cooker.
-        ///
-        /// The shared ownership over the cooker will be relinquished shortly
-        /// after the destruction of the session object as long as the event
-        /// loop of the client is being executed (Client::run()).
-        ///
-        /// CAUTION: ChangesetCooker::cook_changeset() of the specified cooker
-        /// may get called before the call to bind() returns, and it may get
-        /// called (or continue to execute) after the session object is
-        /// destroyed. Please see "Callback semantics" section under Client for
-        /// more on this.
-        ///
-        /// \sa make_client_replication(), TrivialChangesetCooker.
-        std::shared_ptr<ClientReplication::ChangesetCooker> changeset_cooker;
-
-        /// The encryption key the DB will be opened with.
-        util::Optional<std::array<char, 64>> encryption_key;
-
         /// ClientReset is used for both async open and client reset. If
         /// client_reset is not util::none, the sync client will perform
         /// async open for this session if the local Realm does not exist, and
@@ -556,11 +506,6 @@ public:
         /// disturbing for the application than any DOWNLOAD message. The
         /// application can listen to change notifications from the client
         /// reset exactly as in a DOWNLOAD message.
-        ///
-        /// The client reset will recover non-uploaded changes in the local
-        /// Realm if and only if 'recover_local_changes' is true. In case,
-        /// 'recover_local_changes' is false, the local Realm state will hence
-        /// be set to the server's state (server wins).
         ///
         /// Async open and client reset require a private directory for
         /// metadata. This directory must be specified in the option
@@ -610,31 +555,12 @@ public:
         /// void async_wait_for_download_completion(WaitOperCompletionHandler)
         /// or
         /// bool wait_for_download_complete_or_client_stopped().
-        ///
-        /// The option 'require_recent_state_realm' is used for async open to
-        /// request a recent state Realm. A recent state Realm is never empty
-        /// (unless there is no data), and is recent in the sense that it was
-        /// produced by the current incarnation of the server. Recent does not
-        /// mean the absolutely newest possible state Realm, since that might
-        /// lead to too excessive work on the server. Setting
-        /// 'require_recent_state_realm' to true might lead to more work
-        /// performed by the server but it ensures that more data is downloaded
-        /// using async open instead of ordinary synchronization. It is
-        /// recommended to set 'require_recent_state_realm' to true. Client
-        /// reset always downloads a recent state Realm.
         struct ClientReset {
             std::string metadata_dir;
-            bool recover_local_changes = true;
-            bool require_recent_state_realm = true;
         };
         util::Optional<ClientReset> client_reset_config;
 
-        struct ProxyConfig {
-            enum class Type { HTTP, HTTPS } type;
-            std::string address;
-            port_type port;
-        };
-        util::Optional<ProxyConfig> proxy_config;
+        util::Optional<SyncConfig::ProxyConfig> proxy_config;
 
         /// Set to true to disable the upload process for this session. This
         /// includes the sending of empty UPLOAD messages.
@@ -660,10 +586,7 @@ public:
     /// Note that the session is not fully activated until you call bind().
     /// Also note that if you call set_sync_transact_callback(), it must be
     /// done before calling bind().
-    ///
-    /// \param realm_path The file-system path of a local client-side Realm
-    /// file.
-    Session(Client&, std::string realm_path, Config = {});
+    Session(Client&, std::shared_ptr<DB>, Config = {});
 
     /// This leaves the right-hand side session object detached. See "Thread
     /// safety" section under detach().
@@ -681,12 +604,12 @@ public:
     /// under detach().
     Session& operator=(Session&&) noexcept;
 
-    /// Detach this sesion object from the client object (Client). If the
+    /// Detach this session object from the client object (Client). If the
     /// session object is already detached, this function has no effect
     /// (idempotency).
     ///
     /// Detachment initiates session termination, which is an event that takes
-    /// place shortly therafter in the context of the client's event loop
+    /// place shortly thereafter in the context of the client's event loop
     /// thread.
     ///
     /// A detached session object may be destroyed, move-assigned to, and moved
@@ -698,7 +621,7 @@ public:
     /// not execute concurrently with object destruction. Additionally,
     /// detachment must not execute concurrently with a moving operation
     /// involving the session object on the left or right-hand side. See move
-    /// constructor and assigment operator.
+    /// constructor and assignment operator.
     void detach() noexcept;
 
     /// \brief Set a function to be called when the local Realm has changed due
@@ -902,23 +825,22 @@ public:
     /// parameters specified in the Session::Config object.
     ///
     /// The two other forms of bind() are convenience functions.
-    /// void bind(std::string server_url, std::string signed_user_token) parses
-    /// the \a server_url and replaces the parameters in the Session::Config object
-    /// before the session is bound.
-    ///
-    /// \throw BadServerUrl if the specified server URL is malformed.
     void bind();
-    /// Like  bind(), but parses the \a server_url and replaces the
-    /// parameters in the Session::Config object before the session is bound.
-    ///
+    /// \brief parses parameters and replaces the parameters in the Session::Config object
+    /// before the session is bound.
     /// \param server_url For example "realm://sync.realm.io/test". See
     /// server_address, server_path, and server_port in Session::Config for
     /// information about the individual components of the URL. See
     /// ProtocolEnvelope for the list of available URL schemes and the
     /// associated default ports.
+    ///
+    /// \throw BadServerUrl if the specified server URL is malformed.
     void bind(std::string server_url, std::string signed_user_token);
-    /// Like  bind(), but replaces the corresponding parameters from the
-    /// Session::Config object before the session is bound.
+    /// void bind(std::string server_address, std::string server_path,
+    ///           std::string signed_user_token, port_type server_port = 0,
+    ///           ProtocolEnvelope protocol = ProtocolEnvelope::realm);
+    /// replaces the corresponding parameters from the Session::Config object
+    /// before the session is bound.
     void bind(std::string server_address, std::string server_path, std::string signed_user_token,
               port_type server_port = 0, ProtocolEnvelope protocol = ProtocolEnvelope::realm);
     /// @}
@@ -1143,7 +1065,7 @@ const std::error_category& client_error_category() noexcept;
 
 std::error_code make_error_code(Client::Error) noexcept;
 
-std::ostream& operator<<(std::ostream& os, Session::Config::ProxyConfig::Type);
+std::ostream& operator<<(std::ostream& os, SyncConfig::ProxyConfig::Type);
 
 } // namespace sync
 } // namespace realm

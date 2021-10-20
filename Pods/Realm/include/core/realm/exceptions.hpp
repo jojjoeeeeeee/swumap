@@ -219,9 +219,6 @@ private:
 /// exception being thrown. The whole point of properly documenting "Undefined
 /// Behaviour" cases is to help the user know what the limits are, without
 /// constraining the database to handle every and any use-case thrown at it.
-///
-/// FIXME: This exception class should probably be moved to the `_impl`
-/// namespace, in order to avoid some confusion.
 class LogicError : public ExceptionWithBacktrace<std::exception> {
 public:
     enum ErrorKind {
@@ -316,8 +313,8 @@ public:
         /// You can not add index on a subtable of a subtable
         subtable_of_subtable_index,
 
-        /// You try to instantiate a list object not matching column type
-        list_type_mismatch
+        /// You try to instantiate a collection object not matching column type
+        collection_type_mismatch
     };
 
     LogicError(ErrorKind message);

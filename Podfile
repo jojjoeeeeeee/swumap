@@ -8,7 +8,6 @@ target 'ApplicationSWUmap' do
   # Pods for ApplicationSWUmap
 
 # add the Firebase pod for Google Analytics
-
 pod 'Firebase/Analytics'
 pod 'Firebase/Database'
 pod 'Firebase/Core'
@@ -17,8 +16,8 @@ pod 'Firebase/Auth'
 pod 'MessageKit'
 pod 'JGProgressHUD'
 pod 'SDWebImage'
-pod 'Realm'
-pod 'RealmSwift'
+pod 'Realm', '~> 10.17'
+pod 'RealmSwift', '~> 10.17'
  
 # add pods for any other desired Firebase products
 # https://firebase.google.com/docs/ios/setup#available-pods

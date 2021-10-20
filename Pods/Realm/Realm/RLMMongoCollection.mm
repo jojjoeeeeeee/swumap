@@ -26,9 +26,9 @@
 #import "RLMUpdateResult_Private.hpp"
 #import "RLMUser_Private.hpp"
 
-#import "sync/mongo_client.hpp"
-#import "sync/mongo_collection.hpp"
-#import "sync/mongo_database.hpp"
+#import <realm/object-store/sync/mongo_client.hpp>
+#import <realm/object-store/sync/mongo_collection.hpp>
+#import <realm/object-store/sync/mongo_database.hpp>
 
 @implementation RLMChangeStream {
     realm::app::WatchStream _watchStream;
@@ -151,7 +151,11 @@ static realm::bson::BsonArray toBsonArray(id<RLMBSON> bson) {
         if (error) {
             return completion(nil, RLMAppErrorToNSError(*error));
         }
-        completion((NSDictionary<NSString *, id<RLMBSON>> *)RLMConvertBsonToRLMBSON(*document), nil);
+        if (document) {
+            completion((NSDictionary<NSString *, id<RLMBSON>> *)RLMConvertBsonToRLMBSON(*document), nil);
+        } else {
+            completion(nil, nil);
+        }
     });
 }
 

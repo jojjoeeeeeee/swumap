@@ -66,6 +66,12 @@ public protocol ThreadConfined {
      `Realm.Configuration.maximumNumberOfActiveVersions` for more information.
     */
     func freeze() -> Self
+
+    /**
+     Returns a live (mutable) reference of this object.
+     Will return self if called on an already live object.
+     */
+    func thaw() -> Self?
 }
 
 /**
@@ -113,6 +119,79 @@ public protocol ThreadConfined {
     internal func resolve(in realm: Realm) -> Confined? {
         guard let objectiveCValue = realm.rlmRealm.__resolve(objectiveCReference) else { return nil }
         return ((Confined.self as! AssistedObjectiveCBridgeable.Type).bridging(from: objectiveCValue, with: swiftMetadata) as! Confined)
+    }
+}
+
+// MARK: ThreadSafe propertyWrapper
+
+/**
+    A property wrapper type that may be passed between threads.
+
+    A `@ThreadSafe` property contains a thread-safe reference to the underlying wrapped value.
+    This reference is resolved to the thread on which the wrapped value is accessed. A new thread
+    safe reference is created each time the property is accessed.
+
+ - warning: This property wrapper should not be used for properties on long lived objects.
+            `@ThreadSafe` properties contain a `ThreadSafeReference` which
+            can pin the source version of the Realm in use. This means that this property
+            wrapper is **better suited for function arguments and local variables**
+            **that get captured by an aynchronously dispatched block.**
+
+ - see: `ThreadSafeReference`
+ - see: `ThreadConfined`
+*/
+@propertyWrapper public class ThreadSafe<T: ThreadConfined> {
+    private var threadSafeReference: ThreadSafeReference<T>?
+    private var rlmConfiguration: RLMRealmConfiguration?
+    private let lock = NSLock()
+
+    /// :nodoc:
+    public var wrappedValue: T? {
+        get {
+            lock.lock()
+            guard let threadSafeReference = threadSafeReference,
+                  let rlmConfig = rlmConfiguration else {
+                lock.unlock()
+                return nil
+            }
+            do {
+                let rlmRealm = try RLMRealm(configuration: rlmConfig)
+                let realm = Realm(rlmRealm)
+                guard let value = threadSafeReference.resolve(in: realm) else {
+                    self.threadSafeReference = nil
+                    lock.unlock()
+                    return nil
+                }
+                self.threadSafeReference = ThreadSafeReference(to: value)
+                lock.unlock()
+                return value
+            // FIXME: wrappedValue should throw
+            // As of Swift 5.5 property wrappers can't have throwing accessors.
+            } catch let error as NSError {
+                lock.unlock()
+                throwRealmException(error.localizedDescription)
+            }
+        }
+        set {
+            lock.lock()
+            guard let newValue = newValue else {
+                threadSafeReference = nil
+                lock.unlock()
+                return
+            }
+            guard let rlmConfiguration = newValue.realm?.rlmRealm.configuration else {
+                lock.unlock()
+                throwRealmException("Only managed objects may be wrapped as thread safe.")
+            }
+            self.rlmConfiguration = rlmConfiguration
+            threadSafeReference = ThreadSafeReference(to: newValue)
+            lock.unlock()
+        }
+    }
+
+    /// :nodoc:
+    public init(wrappedValue: T?) {
+        self.wrappedValue = wrappedValue
     }
 }
 

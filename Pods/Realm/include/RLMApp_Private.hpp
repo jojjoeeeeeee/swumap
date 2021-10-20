@@ -16,17 +16,21 @@
 //
 ////////////////////////////////////////////////////////////////////////////
 
-#import <Realm/RLMApp.h>
-#import <memory>
-#import "sync/app.hpp"
+#import <Realm/RLMApp_Private.h>
 
-@interface RLMAppConfiguration()
+#import <realm/object-store/sync/app.hpp>
+
+#import <memory>
+
+NS_ASSUME_NONNULL_BEGIN
+
+@interface RLMAppConfiguration ()
 
 - (realm::app::App::Config&)config;
 
-- (void)setAppId:(nonnull NSString *)appId;
+- (void)setAppId:(NSString *)appId;
 
-- (nonnull instancetype)initWithConfig:(const realm::app::App::Config&)config;
+- (instancetype)initWithConfig:(const realm::app::App::Config&)config;
 
 @end
 
@@ -34,13 +38,15 @@
 
 - (std::shared_ptr<realm::app::App>)_realmApp;
 
-+ (nonnull instancetype)appWithId:(nonnull NSString *)appId
-                    configuration:(nonnull RLMAppConfiguration *)configuration
-                    rootDirectory:(nullable NSURL *)rootDirectory;
++ (instancetype)appWithId:(NSString *)appId
+            configuration:(nullable RLMAppConfiguration *)configuration
+            rootDirectory:(nullable NSURL *)rootDirectory;
 
-- (nonnull instancetype)initWithApp:(std::shared_ptr<realm::app::App>)app;
+- (instancetype)initWithApp:(std::shared_ptr<realm::app::App>)app;
 
 + (void)resetAppCache;
 @end
 
-NSError * _Nonnull RLMAppErrorToNSError(realm::app::AppError const& appError);
+NSError * RLMAppErrorToNSError(realm::app::AppError const& appError);
+
+NS_ASSUME_NONNULL_END
